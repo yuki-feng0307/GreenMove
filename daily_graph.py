@@ -12,17 +12,17 @@ import requests_cache
 from retry_requests import retry
 
 
-park_shp = gpd.read_file('parks_50m_buffer_+parkid.shp')
-# num_columns2 = len(park_shp.columns)
-# column_names2 = park_shp.columns.tolist()
-# print("列数：", num_columns2)
-# print("列名：", column_names2)
+park_shp = gpd.read_file('parks_50m_buffer_+parkid2.shp')
+num_columns2 = len(park_shp.columns)
+column_names2 = park_shp.columns.tolist()
+print("列数：", num_columns2)
+print("列名：", column_names2)
 
-voronoi_shp = gpd.read_file('Voronoi_shanghai_expand.shp')
-# num_columns = len(voronoi_shp.columns)
-# column_names = voronoi_shp.columns.tolist()
-# print("列数：", num_columns)
-# print("列名：", column_names)
+voronoi_shp = gpd.read_file('Voronoi_shanghai_3_expand.shp')
+num_columns = len(voronoi_shp.columns)
+column_names = voronoi_shp.columns.tolist()
+print("列数：", num_columns)
+print("列名：", column_names)
 
 sparse_polygon = voronoi_shp[voronoi_shp['visitors_d'] <= 0]
 dense_polygon = voronoi_shp[voronoi_shp['visitors_d'] > 0]
@@ -90,16 +90,16 @@ def daily_weather():
     return daily_weather
 
 
-def grid_park_graph(dense_grid,park_shp,df,weather,save_path):
+def polygon_park_graph(dense_poly, park_shp, df, weather, save_path):
     G = nx.Graph()
 
     # polygon node
-    for idx, polygon in dense_grid.iterrows():
+    for idx, polygon in dense_poly.iterrows():
         geoid = polygon['GEOID']
         # node_name = GEOID
-        node_name = f"{geoid}grid"
+        node_name = f"{geoid}poly"
         G.add_node(node_name)
-        for column in dense_grid.columns:
+        for column in dense_poly.columns:
             if column != 'GEOID' and column != 'pop' and column != 'pop_d' and column != 'outflow' and column != 'resid_num' \
                     and column != 'visitors' and column != 'visitors_d' and column != 'users' and column != 'users_d' \
                     and column != 'users_t' and column != 'census_t' and column != 'exp_ratio':
@@ -151,6 +151,7 @@ def grid_park_graph(dense_grid,park_shp,df,weather,save_path):
         station_point = loads(station)
         # distance between polygon(cell tower) and park
         d = distance(station_point.y, station_point.x, park_y, park_x)
+        # distance = geodesic((station_point.y, station_point.x), (park_y, park_x)).meters
         distance_data.append({'grid_id': name[0], 'park_id': name[1], 'distance': d})
     distance_df = pd.DataFrame(distance_data)
 
@@ -191,9 +192,11 @@ def grid_park_graph(dense_grid,park_shp,df,weather,save_path):
     with open(save_path, "wb") as f:
         pickle.dump(G, f)
         pickle.dump(weather, f)
+    # nx.write_gexf(G, save_path)
 
     print(G)
     print(len(G))
+
 
 
 '''daily graph'''
@@ -207,5 +210,5 @@ for date, daily_df in daily_group_df:
     weather_d = weather[weather['date'] == date].iloc[0]
     weather_d = weather_d.drop('date').to_dict()
     save_path = os.path.join('/data/yuting/Data/shanghai/Stations/Graph/daily_graph_exp_8-4_geometry/', f'{date}.pkl')
-    grid_park_graph(dense_polygon, park_shp, daily_df, weather_d, save_path)
+    polygon_park_graph(dense_polygon, park_shp, daily_df, weather_d, save_path)
     print(save_path)
