@@ -13,14 +13,14 @@ from retry_requests import retry
 park_shp = gpd.read_file('parks_50m_buffer_+parkid3.shp')
 # num_columns2 = len(park_shp.columns)
 # column_names2 = park_shp.columns.tolist()
-# print("列数：", num_columns2)
-# print("列名：", column_names2)
+# print(num_columns2)
+# print(column_names2)
 
 voronoi_shp = gpd.read_file('Voronoi_shanghai_3_expand.shp')
 # num_columns = len(voronoi_shp.columns)
 # column_names = voronoi_shp.columns.tolist()
-# print("列数：", num_columns)
-# print("列名：", column_names)
+# print(num_columns)
+# print(column_names)
 
 sparse_poly = voronoi_shp[voronoi_shp['visitors_d'] <= 0]
 dense_poly = voronoi_shp[voronoi_shp['visitors_d'] > 0]
