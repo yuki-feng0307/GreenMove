@@ -10,19 +10,13 @@ import requests_cache
 from retry_requests import retry
 
 
-park_shp = gpd.read_file('/data/yuting/Data/shanghai/park/polygon/buffer_50m/395_parks_50m_buffer_+parkid3.shp')
-park_shp = park_shp.rename(columns={'area_new': 'area_park'})
+park_shp = gpd.read_file('parks_50m_buffer_+parkid3.shp')
 # num_columns2 = len(park_shp.columns)
 # column_names2 = park_shp.columns.tolist()
 # print("列数：", num_columns2)
 # print("列名：", column_names2)
 
-voronoi_shp = gpd.read_file('/data/yuting/Data/shanghai/Stations/Voronoi_visitors/Voronoi_8-4_50mbuffer/Voronoi_shanghai_3_expand.shp')
-voronoi_shp = voronoi_shp.rename(columns={'area': 'area_poly'})
-voronoi_shp = voronoi_shp.drop(columns=['PNAI'])
-voronoi_shp = voronoi_shp.rename(columns={'parks_2km': 'park2km'})
-voronoi_shp = voronoi_shp.rename(columns={'parks2-5km': 'park2-5km'})
-voronoi_shp = voronoi_shp.rename(columns={'parks5-10k': 'park5-10km'})
+voronoi_shp = gpd.read_file('Voronoi_shanghai_3_expand.shp')
 # num_columns = len(voronoi_shp.columns)
 # column_names = voronoi_shp.columns.tolist()
 # print("列数：", num_columns)
@@ -32,7 +26,7 @@ sparse_poly = voronoi_shp[voronoi_shp['visitors_d'] <= 0]
 dense_poly = voronoi_shp[voronoi_shp['visitors_d'] > 0]
 sparse_points = sparse_poly['point']
 
-df = pd.read_csv('/data/yuting/Data/shanghai/park/visit/grid/park_visit_filtered8-4_grid_10m_50mbuffer_holiday.csv')
+df = pd.read_csv('park_visit_filtered8-4_grid_10m_50mbuffer_holiday.csv')
 print('finish read')
 
 
@@ -137,6 +131,7 @@ def polygon_park_graph(dense_poly, park_shp, df, weather, save_path):
     # print(G)
     # print(len(G))
 
+    
     # poly-park edge
     df_f = df[df['grid_id'].notnull()]
     df_grouped = df_f.groupby(['grid_id', 'park_id'])
@@ -164,31 +159,26 @@ def polygon_park_graph(dense_poly, park_shp, df, weather, save_path):
     final_df = pd.merge(merged_df, distance_df, on=['grid_id', 'park_id'], how='inner')
 
     df_grouped = final_df.groupby(['grid_id', 'park_id'])
-    # 分组、排序和重置索引,flow_ratio从高到低
     df_sorted = final_df.sort_values(by='flow_ratio', ascending=False).reset_index(drop=True)
-    # 按照 'grid_id' 和 'park_id' 分组，并计算每组的累积和
     df_sorted['cumulative_ratio'] = df_sorted.groupby(['grid_id', 'park_id'])['flow_ratio'].transform('cumsum')
-    # .shift(1) <= 0.5第一个累积和超过50%的行
     df_sorted['include'] = (df_sorted['cumulative_ratio'] <= 1) | (
                 df_sorted.groupby(['grid_id', 'park_id'])['cumulative_ratio'].shift(1) <= 1)
     final_df_filtered = df_sorted[df_sorted['include']]
 
     for _, row in final_df_filtered.iterrows():
-        # 获取 'grid_id' 对应的节点名字
         poly_node_name = f"{int(row['grid_id'])}poly"
-        # 获取 'park_id' 对应的节点名字
         park_node_name = f"{int(row['park_id'])}park"
 
         if poly_node_name not in G.nodes or park_node_name not in G.nodes:
             continue
 
-        # flow也等比例/ratio扩大，flow_ratio、commuter_ratio、distance不需要变
+        # scale up pairflow
         poly_exp_ratio = G.nodes[poly_node_name].get('exp_ratio', None)
         if poly_exp_ratio and poly_exp_ratio != 0:
             exp_flow = row['flow'] / poly_exp_ratio
         else:
-            exp_flow = row['flow']  # 如果exp_ratio为0，则说明原flow就是0
-        exp_flow = round(exp_flow)  # 四舍五入，取整
+            exp_flow = row['flow'] 
+        exp_flow = round(exp_flow)  
 
         G.add_edge(poly_node_name, park_node_name,
                    flow=exp_flow,
@@ -239,5 +229,5 @@ daily_group_df = df.groupby('date')
 for date, daily_df in daily_group_df:
     weather_d = weather[weather['date'] == date].iloc[0]
     weather_d = weather_d.drop('date').to_dict()
-    save_directory = os.path.join('/data/yuting/Data/shanghai/Stations/Graph/daily_segment_graph_exp_8-4_geometry/',f'{date}/')
+    save_directory = os.path.join('daily_segment_graph_exp_8-4_geometry/',f'{date}/')
     daily_segment_grpah(daily_df, dense_poly, park_shp, weather_d, save_directory)
