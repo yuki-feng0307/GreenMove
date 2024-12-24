@@ -12,7 +12,7 @@ import requests_cache
 from retry_requests import retry
 
 
-park_shp = gpd.read_file('parks_50m_buffer_+parkid2.shp')
+park_shp = gpd.read_file('parks_50m_buffer_+parkid3.shp')
 num_columns2 = len(park_shp.columns)
 column_names2 = park_shp.columns.tolist()
 print("列数：", num_columns2)
